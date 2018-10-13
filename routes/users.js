@@ -182,4 +182,194 @@ router.post('/editCart/checkAll', (req, res, next) => {
   })
 })
 
+// 查询用户地址接口
+router.get('/addressList', (req, res, next) => {
+  let userId = req.cookies.userId;
+  Users.findOne({userId}, (err, doc) => {
+    if (err) {
+      res.json({
+        status: '1',
+        msg: err.message,
+        result: ''
+      })
+    } else {
+      res.json({
+        status: '0',
+        msg: '',
+        result: doc.addressList
+      })
+    }
+  })
+})
+
+// 设置默认地址接口
+router.post('/setDefaultAddress', (req, res, next) => {
+  let userId = req.cookies.userId,
+      addressId = req.body.addressId;
+  Users.findOne({userId}, (err, userDoc) => {
+    if (err) {
+      res.json({
+        status: '1',
+        msg: err.message,
+        result:''
+      })
+    } else {
+      let addressList = userDoc.addressList;
+      addressList.forEach((item) => {
+        if (item.addressId == addressId) {
+          item.isDefault = true;
+        } else {
+          item.isDefault = false;
+        }
+      })
+      userDoc.save((err1) => {
+        if (err1) {
+          res.json({
+            status: '1',
+            msg: err1.message,
+            result: ''
+          })
+        } else {
+          res.json({
+            status: '0',
+            msg: '',
+            result: 'set default address sucess'
+          })
+        }
+      })
+    }
+  })
+})
+
+// 删除地址接口
+router.post('/delAddress', (req, res, next) => {
+  let userId = req.cookies.userId,
+      addressId = req.body.addressId;
+  if (!addressId) {
+    return;
+  }
+
+  // // 使用findOne实现
+  // Users.findOne({userId}, (err, userDoc) => {
+  //   if (err) {
+  //     res.json({
+  //       status: '1',
+  //       msg: err.message,
+  //       result: ''
+  //     })
+  //   } else {
+  //     let addressList = userDoc.addressList;
+  //     addressList.forEach((item, index) => {
+  //       if (item.addressId == addressId) {
+  //         addressList.splice(index, 1)
+  //       }
+  //     })
+  //     userDoc.save((err) => {
+  //       if (!err) {
+  //         res.json({
+  //           status: '0',
+  //           msg: '',
+  //           result: 'del address success'
+  //         })
+  //       }
+  //     })
+  //   }
+  // })
+
+  // 使用update实现
+  Users.update({userId}, {
+    $pull: {
+      addressList: {
+        addressId
+      }
+    }
+  }, (err) => {
+    if (!err) {
+      res.json({
+        status: '0',
+        msg: '',
+        result: 'del address success'
+      })
+    }
+  })
+})
+
+// 创建订单接口
+router.post('/createOrder', (req, res, next) => {
+  let userId = req.cookies.userId,
+      addressId = req.body.addressId,
+      orderTotal = req.body.orderTotal;
+  
+  Users.findOne({userId}, (err, userDoc) => {
+    if (err) {
+      res.json({
+        status: '1',
+        msg: err.message,
+        result: ''
+      })
+    } else {
+      let address = '',
+          goodsList = [];
+      
+      // 获取完整地址
+      userDoc.addressList.forEach((item) => {
+        if (item.addressId == addressId) {
+          address = item
+        }
+      })
+      //获取选中的商品列表
+      userDoc.cartList.forEach((item) => {
+        if (item.checked == '1') {
+          goodsList.push(item)
+        }
+      })
+
+      if (!goodsList) {
+        res.json({
+          status: '1',
+          message: 'cart is null',
+          result: ''
+        })
+      }
+      //生成订单ID和时间
+      let platform = '621'
+      let r1 = Math.floor(Math.random() * 10);
+      let r2 = Math.floor(Math.random() * 10);
+      let sysDate = new Date().Format('yyyyMMddhhmmss');
+      let createDate = new Date().Format('yyyy-MM-dd hh-mm-ss');
+      let orderId = platform + r1 + sysDate + r2;
+      // 构造新订单
+      let order = {
+        orderId: orderId,
+        orderTotal: orderTotal,
+        addressInfo: address,
+        goodsList: goodsList,
+        orderStatus: '1',
+        createDate: createDate
+      }
+      // 保存订单
+      userDoc.orderList.push(order)
+      // 删除购物车中已创建订单的商品
+      for(i=0;i<userDoc.cartList.length;i++){
+        if (userDoc.cartList[i].checked == '1') {
+          userDoc.cartList.splice(i, 1);
+          i = 0
+        }
+      }
+      userDoc.save((err1) => {
+        if (!err1) {
+          res.json({
+            status: '0',
+            msg: '',
+            result: {
+              orderTotal: order.orderTotal,
+              orderId: order.orderId
+            }
+          })
+        }
+      })
+    }
+  })
+})
+
 module.exports = router;

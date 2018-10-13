@@ -6,6 +6,8 @@ var logger = require('morgan');
 const ejs = require('ejs');
 var goods = require('./routes/goods')
 
+require('./util/util.js')
+
 var indexRouter = require('./routes/index');
 var usersRouter = require('./routes/users');
 
